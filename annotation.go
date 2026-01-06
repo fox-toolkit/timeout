@@ -8,23 +8,38 @@ import (
 
 type key struct{}
 
-var ctxKey key
+var (
+	timeoutKey      key
+	readTimeoutKey  key
+	writeTimeoutKey key
+)
 
-// After returns a RouteOption that sets a custom timeout duration for a specific route.
+const NoTimeout = time.Duration(0)
+
+// HandlerTimeout returns a RouteOption that sets a custom timeout duration for a specific route.
 // This allows individual routes to have different timeout values than the global timeout.
-func After(dt time.Duration) fox.RouteOption {
-	return fox.WithAnnotation(ctxKey, dt)
+// Passing a value <= 0 (or NoTimeout) disables the timeout for this route.
+func HandlerTimeout(dt time.Duration) fox.RouteOption {
+	return fox.WithAnnotation(timeoutKey, dt)
 }
 
-// None returns a RouteOption that disables the timeout for a specific route.
-// This is useful for long-running operations like file uploads or SSE endpoints.
-func None() fox.RouteOption {
-	return fox.WithAnnotation(ctxKey, time.Duration(0))
+// ReadTimeout returns a RouteOption that sets the read deadline for the underlying connection.
+// This controls how long the server will wait for the client to send request data.
+// A zero duration is not allowed and will return an error during route registration.
+func ReadTimeout(dt time.Duration) fox.RouteOption {
+	return fox.WithAnnotation(readTimeoutKey, dt)
 }
 
-func unwrapRouteTimeout(r *fox.Route) (time.Duration, bool) {
+// WriteTimeout returns a RouteOption that sets the write deadline for the underlying connection.
+// This controls how long the server will wait before timing out writes to the client.
+// A zero duration is not allowed and will return an error during route registration.
+func WriteTimeout(dt time.Duration) fox.RouteOption {
+	return fox.WithAnnotation(writeTimeoutKey, dt)
+}
+
+func unwrapRouteTimeout(r *fox.Route, k key) (time.Duration, bool) {
 	if r != nil {
-		dt := r.Annotation(ctxKey)
+		dt := r.Annotation(k)
 		if dt != nil {
 			return dt.(time.Duration), true
 		}

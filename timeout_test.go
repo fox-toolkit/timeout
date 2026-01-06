@@ -5,9 +5,11 @@
 package foxtimeout
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,15 +20,15 @@ import (
 	"github.com/tigerwill90/fox"
 )
 
-func success201response(c fox.Context) {
+func success201response(c *fox.Context) {
 	time.Sleep(10 * time.Millisecond)
-	_ = c.String(http.StatusCreated, "%s\n", http.StatusText(http.StatusCreated))
+	_ = c.String(http.StatusCreated, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)))
 }
 
 func TestMiddleware_WithTimeout(t *testing.T) {
-	f, err := fox.New(fox.WithMiddleware(Middleware(50 * time.Microsecond)))
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(50 * time.Microsecond)))
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", success201response)
+	f.MustAdd(fox.MethodGet, "/foo", success201response)
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -37,9 +39,9 @@ func TestMiddleware_WithTimeout(t *testing.T) {
 }
 
 func TestMiddleware_WithoutTimeout(t *testing.T) {
-	f, err := fox.New(fox.WithMiddleware(Middleware(1 * time.Second)))
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Second)))
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", success201response)
+	f.MustAdd(fox.MethodGet, "/foo", success201response)
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -49,14 +51,14 @@ func TestMiddleware_WithoutTimeout(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
 }
 
-func timeoutResponse(c fox.Context) {
+func timeoutResponse(c *fox.Context) {
 	http.Error(c.Writer(), http.StatusText(http.StatusRequestTimeout), http.StatusRequestTimeout)
 }
 
 func TestMiddleware_WithResponse(t *testing.T) {
-	f, err := fox.New(fox.WithMiddleware(Middleware(50*time.Microsecond, WithResponse(timeoutResponse))))
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(50*time.Microsecond, WithResponse(timeoutResponse))))
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", success201response)
+	f.MustAdd(fox.MethodGet, "/foo", success201response)
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -66,14 +68,14 @@ func TestMiddleware_WithResponse(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusRequestTimeout)), w.Body.String())
 }
 
-func panicResponse(c fox.Context) {
+func panicResponse(c *fox.Context) {
 	panic("test")
 }
 
 func TestMiddleware_WithPanic(t *testing.T) {
-	f, err := fox.New(
+	f, err := fox.NewRouter(
 		fox.WithMiddleware(
-			fox.CustomRecoveryWithLogHandler(slog.NewTextHandler(io.Discard, nil), func(c fox.Context, err any) {
+			fox.RecoveryWithFunc(slog.DiscardHandler, func(c *fox.Context, err any) {
 				if !c.Writer().Written() {
 					http.Error(c.Writer(), http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				}
@@ -82,7 +84,7 @@ func TestMiddleware_WithPanic(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", panicResponse)
+	f.MustAdd(fox.MethodGet, "/foo", panicResponse)
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -93,9 +95,9 @@ func TestMiddleware_WithPanic(t *testing.T) {
 }
 
 func TestMiddleware_NoTimeout(t *testing.T) {
-	f, err := fox.New(fox.WithMiddleware(Middleware(0)))
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(0)))
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", success201response)
+	f.MustAdd(fox.MethodGet, "/foo", success201response)
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -106,9 +108,9 @@ func TestMiddleware_NoTimeout(t *testing.T) {
 }
 
 func TestMiddleware_ErrNotSupported(t *testing.T) {
-	f, err := fox.New(fox.WithMiddleware(Middleware(1 * time.Second)))
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Second)))
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", func(c fox.Context) {
+	f.MustAdd(fox.MethodGet, "/foo", func(c *fox.Context) {
 		assert.ErrorIs(t, c.Writer().FlushError(), http.ErrNotSupported)
 		_, _, hijErr := c.Writer().Hijack()
 		assert.ErrorIs(t, hijErr, http.ErrNotSupported)
@@ -121,10 +123,10 @@ func TestMiddleware_ErrNotSupported(t *testing.T) {
 	f.ServeHTTP(w, req)
 }
 
-func TestMiddleware_WithAfter(t *testing.T) {
-	f, err := fox.New(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
+func TestMiddleware_WithHandlerTimeout(t *testing.T) {
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", success201response, After(2*time.Second))
+	f.MustAdd(fox.MethodGet, "/foo", success201response, HandlerTimeout(2*time.Second))
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -134,10 +136,10 @@ func TestMiddleware_WithAfter(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
 }
 
-func TestMiddleware_WithNone(t *testing.T) {
-	f, err := fox.New(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
+func TestMiddleware_WithDisableTimeout(t *testing.T) {
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
 	require.NoError(t, err)
-	f.MustHandle(http.MethodGet, "/foo", success201response, None())
+	f.MustAdd(fox.MethodGet, "/foo", success201response, HandlerTimeout(NoTimeout))
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -147,36 +149,86 @@ func TestMiddleware_WithNone(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
 }
 
-func ExampleAfter() {
-	f, err := fox.New(
-		fox.WithMiddleware(Middleware(2 * time.Second)),
-	)
-	if err != nil {
-		panic(err)
-	}
+func TestMiddleware_WithReadTimeout(t *testing.T) {
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(NoTimeout)))
+	require.NoError(t, err)
 
-	f.MustHandle(http.MethodGet, "/hello/{name}", func(c fox.Context) {
-		_ = c.String(http.StatusOK, "hello %s\n", c.Param("name"))
-	})
-	f.MustHandle(http.MethodGet, "/long", func(c fox.Context) {
-		time.Sleep(10 * time.Second)
+	called := false
+	f.MustAdd(fox.MethodPost, "/foo", func(c *fox.Context) {
+		buf := make([]byte, 1024)
+		_, err := c.Request().Body.Read(buf)
+		if err != nil {
+			called = true
+			assert.Contains(t, err.Error(), "i/o timeout")
+			http.Error(c.Writer(), err.Error(), http.StatusRequestTimeout)
+			return
+		}
 		c.Writer().WriteHeader(http.StatusOK)
-	}, After(12*time.Second))
+	}, ReadTimeout(50*time.Millisecond))
+
+	srv := httptest.NewServer(f)
+	defer srv.Close()
+
+	pr, pw := io.Pipe()
+	go func() {
+		// Slow writer: sends data too slowly, causing read timeout on server
+		time.Sleep(200 * time.Millisecond)
+		_, _ = pw.Write([]byte("hello"))
+		pw.Close()
+	}()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/foo", pr)
+	require.NoError(t, err)
+
+	_, _ = http.DefaultClient.Do(req)
+	assert.True(t, called)
 }
 
-func ExampleNone() {
-	f, err := fox.New(
+func TestMiddleware_WithWriteTimeout(t *testing.T) {
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(NoTimeout)))
+	require.NoError(t, err)
+
+	f.MustAdd(fox.MethodGet, "/foo", func(c *fox.Context) {
+		data := bytes.Repeat([]byte("x"), 10*1024*1024)
+		_, _ = c.Writer().Write(data)
+	}, WriteTimeout(50*time.Millisecond))
+
+	srv := httptest.NewServer(f)
+	defer srv.Close()
+
+	addr := srv.Listener.Addr().String()
+	conn, err := net.Dial("tcp", addr)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	_, err = fmt.Fprintf(conn, "GET /foo HTTP/1.1\r\nHost: %s\r\n\r\n", addr)
+	require.NoError(t, err)
+
+	time.Sleep(1 * time.Second) // let TCP buffer fill
+
+	_ = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	n, _ := io.Copy(io.Discard, conn)
+	assert.Less(t, n, int64(10*1024*1024))
+}
+
+func ExampleHandlerTimeout() {
+	f, err := fox.NewRouter(
 		fox.WithMiddleware(Middleware(2 * time.Second)),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	f.MustHandle(http.MethodGet, "/hello/{name}", func(c fox.Context) {
-		_ = c.String(http.StatusOK, "hello %s\n", c.Param("name"))
+	f.MustAdd(fox.MethodGet, "/hello/{name}", func(c *fox.Context) {
+		_ = c.String(http.StatusOK, fmt.Sprintf("hello %s\n", c.Param("name")))
 	})
-	f.MustHandle(http.MethodGet, "/long", func(c fox.Context) {
+
+	f.MustAdd(fox.MethodGet, "/long", func(c *fox.Context) {
 		time.Sleep(10 * time.Second)
 		c.Writer().WriteHeader(http.StatusOK)
-	}, None())
+	}, HandlerTimeout(12*time.Second))
+
+	f.MustAdd(fox.MethodGet, "/no-timeout", func(c *fox.Context) {
+		c.Writer().WriteHeader(http.StatusOK)
+	}, HandlerTimeout(NoTimeout))
 }

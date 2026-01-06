@@ -42,7 +42,9 @@ type Timeout struct {
 //
 // The timeout middleware supports the [http.Pusher] interface but does not support the [http.Hijacker] or [http.Flusher] interfaces.
 //
-// Individual routes can override the timeout duration using the [After] option or disable it entirely using [None]:
+// Individual routes can override the timeout duration using the [HandlerTimeout] option. It's also possible to set the read
+// and write deadline for individual route using the [ReadTimeout] and [WriteTimeout] option.
+// If dt <= 0 (or NoTimeout), this is a passthrough middleware but per-route options remain effective.
 func Middleware(dt time.Duration, opts ...Option) fox.MiddlewareFunc {
 	return create(dt, opts...).run
 }
@@ -61,7 +63,7 @@ func create(dt time.Duration, opts ...Option) *Timeout {
 
 // run is the internal handler that applies the timeout logic.
 func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
-	return func(c fox.Context) {
+	return func(c *fox.Context) {
 
 		for _, f := range t.cfg.filters {
 			if f(c) {
@@ -70,6 +72,7 @@ func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
 			}
 		}
 
+		t.setDeadline(c)
 		dt := t.resolveTimeout(c)
 		if dt <= 0 {
 			next(c)
@@ -130,19 +133,25 @@ func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
 			default:
 				tw.err = err
 			}
-			if t.cfg.enableAbortRequestBody {
-				_ = w.SetReadDeadline(time.Now())
-			}
 			t.cfg.resp(c)
 		}
 	}
 }
 
-func (t *Timeout) resolveTimeout(c fox.Context) time.Duration {
-	if dt, ok := unwrapRouteTimeout(c.Route()); ok {
+func (t *Timeout) resolveTimeout(c *fox.Context) time.Duration {
+	if dt, ok := unwrapRouteTimeout(c.Route(), timeoutKey); ok {
 		return dt
 	}
 	return t.dt
+}
+
+func (t *Timeout) setDeadline(c *fox.Context) {
+	if dt, ok := unwrapRouteTimeout(c.Route(), readTimeoutKey); ok {
+		_ = c.Writer().SetReadDeadline(time.Now().Add(dt))
+	}
+	if dt, ok := unwrapRouteTimeout(c.Route(), writeTimeoutKey); ok {
+		_ = c.Writer().SetWriteDeadline(time.Now().Add(dt))
+	}
 }
 
 func checkWriteHeaderCode(code int) {

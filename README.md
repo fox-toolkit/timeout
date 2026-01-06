@@ -31,6 +31,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -40,23 +41,22 @@ import (
 )
 
 func main() {
-	f, err := fox.New(
+	f := fox.MustRouter(
 		fox.DefaultOptions(),
 		fox.WithMiddleware(
 			foxtimeout.Middleware(2*time.Second),
 		),
 	)
-	if err != nil {
-		panic(err)
-	}
 
-	f.MustHandle(http.MethodGet, "/hello/{name}", func(c fox.Context) {
-		_ = c.String(http.StatusOK, "hello %s\n", c.Param("name"))
+	f.MustAdd(fox.MethodGet, "/hello/{name}", func(c *fox.Context) {
+		_ = c.String(http.StatusOK, fmt.Sprintf("Hello %s\n", c.Param("name")))
 	})
-	f.MustHandle(http.MethodGet, "/download/{filepath}", DownloadHandler, foxtimeout.None())
-	f.MustHandle(http.MethodGet, "/workflow/{id}/start", WorkflowHandler, foxtimeout.After(15*time.Second))
+	// Disable timeout the middleware for this route
+	f.MustAdd(fox.MethodGet, "/download/{filepath}", DownloadHandler, foxtimeout.HandlerTimeout(foxtimeout.NoTimeout))
+	// Use 15s timeout instead of the global 2s for this route
+	f.MustAdd(fox.MethodGet, "/workflow/{id}/start", WorkflowHandler, foxtimeout.HandlerTimeout(15*time.Second))
 
-	if err = http.ListenAndServe(":8080", f); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := http.ListenAndServe(":8080", f); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalln(err)
 	}
 }

@@ -11,16 +11,15 @@ import (
 )
 
 type config struct {
-	resp                   fox.HandlerFunc
-	filters                []Filter
-	enableAbortRequestBody bool
+	resp    fox.HandlerFunc
+	filters []Filter
 }
 
 type Option interface {
 	apply(*config)
 }
 
-type Filter func(c fox.Context) (skip bool)
+type Filter func(c *fox.Context) (skip bool)
 
 type optionFunc func(*config)
 
@@ -56,15 +55,6 @@ func WithResponse(h fox.HandlerFunc) Option {
 }
 
 // DefaultTimeoutResponse sends a default 503 Service Unavailable response.
-func DefaultTimeoutResponse(c fox.Context) {
+func DefaultTimeoutResponse(c *fox.Context) {
 	http.Error(c.Writer(), http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-}
-
-// WithAbortRequestBody controls whether to set a read deadline on the request
-// when a timeout occurs. When enabled, subsequent reads from the request body
-// will immediately fail after a timeout.
-func WithAbortRequestBody(enable bool) Option {
-	return optionFunc(func(c *config) {
-		c.enableAbortRequestBody = enable
-	})
 }

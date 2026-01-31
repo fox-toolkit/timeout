@@ -13,8 +13,8 @@ github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjR
 github.com/rogpeppe/go-internal v1.10.0/go.mod h1:UQnix2H7Ngw/k4C5ijL5+65zddjncjaFoBhdsK/akog=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/tigerwill90/fox v0.26.1 h1:shCnnQBIXoeowVj2QqImP969svLi/qBXXrDaiBvuGl4=
-github.com/tigerwill90/fox v0.26.1/go.mod h1:zXZwe2JG+YYD1hkVnOtphURr/RArlnIgUH1f9WeP43w=
+github.com/tigerwill90/fox v0.26.2 h1:nxgRvBol5RfLkQBySdbgfozQUi5CrNaZRQVxPRxkc70=
+github.com/tigerwill90/fox v0.26.2/go.mod h1:3show2Frfz02pLqprHsYMaeyS2jpie9RILASw6I3no8=
 golang.org/x/net v0.49.0 h1:eeHFmOGUTtaaPSGNmjBKpbng9MulQsJURQUAfUwY++o=
 golang.org/x/net v0.49.0/go.mod h1:/ysNB2EvaqvesRkuLAyjI1ycPZlQHM3q01F02UY/MV8=
 golang.org/x/sys v0.40.0 h1:DBZZqJ2Rkml6QMQsZywtnjnnGvHza6BTfYFWY9kjEWQ=

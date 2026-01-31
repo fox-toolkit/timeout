@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/stretchr/testify v1.11.1
-	github.com/tigerwill90/fox v0.26.1
+	github.com/tigerwill90/fox v0.26.2
 )
 
 require (

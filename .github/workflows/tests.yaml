@@ -5,43 +5,46 @@ on:
 
 jobs:
   test:
-    name: Test Foxtimeout
+    name: Test Timeout
     runs-on: ubuntu-latest
     strategy:
       matrix:
         go: [ '>=1.24' ]
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
           cache: false
 
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Run tests
         run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          flags: coverage.txt
+          fail_ci_if_error: true
+          files: ./coverage.txt
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   lint:
-    name: Lint Foxtimeout
+    name: Lint Timeout
     runs-on: ubuntu-latest
     strategy:
       matrix:
         go: [ '>=1.24' ]
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
           cache: false
 
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Run linter
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v9

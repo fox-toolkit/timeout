@@ -1,8 +1,8 @@
 // Copyright 2023 Sylvain Müller. All rights reserved.
 // Mount of this source code is governed by a MIT license that can be found
-// at https://github.com/tigerwill90/foxtimeout/blob/master/LICENSE.txt.
+// at https://github.com/fox-toolkit/timeout/blob/master/LICENSE.txt.
 
-package foxtimeout
+package timeout
 
 import (
 	"bytes"
@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fox-toolkit/fox"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tigerwill90/fox"
 )
 
 func success201response(c *fox.Context) {
@@ -126,7 +126,7 @@ func TestMiddleware_ErrNotSupported(t *testing.T) {
 func TestMiddleware_WithHandlerTimeout(t *testing.T) {
 	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
 	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response, HandlerTimeout(2*time.Second))
+	f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(2*time.Second))
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -139,7 +139,7 @@ func TestMiddleware_WithHandlerTimeout(t *testing.T) {
 func TestMiddleware_WithDisableTimeout(t *testing.T) {
 	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
 	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response, HandlerTimeout(NoTimeout))
+	f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(NoTimeout))
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -164,7 +164,7 @@ func TestMiddleware_WithReadTimeout(t *testing.T) {
 			return
 		}
 		c.Writer().WriteHeader(http.StatusOK)
-	}, ReadTimeout(50*time.Millisecond))
+	}, OverrideRead(50*time.Millisecond))
 
 	srv := httptest.NewServer(f)
 	defer srv.Close()
@@ -191,7 +191,7 @@ func TestMiddleware_WithWriteTimeout(t *testing.T) {
 	f.MustAdd(fox.MethodGet, "/foo", func(c *fox.Context) {
 		data := bytes.Repeat([]byte("x"), 10*1024*1024)
 		_, _ = c.Writer().Write(data)
-	}, WriteTimeout(50*time.Millisecond))
+	}, OverrideWrite(50*time.Millisecond))
 
 	srv := httptest.NewServer(f)
 	defer srv.Close()
@@ -211,7 +211,7 @@ func TestMiddleware_WithWriteTimeout(t *testing.T) {
 	assert.Less(t, n, int64(10*1024*1024))
 }
 
-func ExampleHandlerTimeout() {
+func ExampleOverrideHandler() {
 	f, err := fox.NewRouter(
 		fox.WithMiddleware(Middleware(2 * time.Second)),
 	)
@@ -226,9 +226,9 @@ func ExampleHandlerTimeout() {
 	f.MustAdd(fox.MethodGet, "/long", func(c *fox.Context) {
 		time.Sleep(10 * time.Second)
 		c.Writer().WriteHeader(http.StatusOK)
-	}, HandlerTimeout(12*time.Second))
+	}, OverrideHandler(12*time.Second))
 
 	f.MustAdd(fox.MethodGet, "/no-timeout", func(c *fox.Context) {
 		c.Writer().WriteHeader(http.StatusOK)
-	}, HandlerTimeout(NoTimeout))
+	}, OverrideHandler(NoTimeout))
 }

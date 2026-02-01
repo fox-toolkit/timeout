@@ -1,25 +1,22 @@
 // Copyright 2023 Sylvain Müller. All rights reserved.
 // Mount of this source code is governed by a MIT license that can be found
-// at https://github.com/tigerwill90/foxtimeout/blob/master/LICENSE.txt.
+// at https://github.com/fox-toolkit/timeout/blob/master/LICENSE.txt.
 
-package foxtimeout
+package timeout
 
 import (
 	"net/http"
 
-	"github.com/tigerwill90/fox"
+	"github.com/fox-toolkit/fox"
 )
 
 type config struct {
-	resp    fox.HandlerFunc
-	filters []Filter
+	resp fox.HandlerFunc
 }
 
 type Option interface {
 	apply(*config)
 }
-
-type Filter func(c *fox.Context) (skip bool)
 
 type optionFunc func(*config)
 
@@ -31,16 +28,6 @@ func defaultConfig() *config {
 	return &config{
 		resp: DefaultTimeoutResponse,
 	}
-}
-
-// WithFilter appends the provided filters to the middleware's filter list.
-// A filter returning true will exclude the request from using the timeout handler. If no filters
-// are provided, all requests will be handled. Keep in mind that filters are invoked for each request,
-// so they should be simple and efficient.
-func WithFilter(f ...Filter) Option {
-	return optionFunc(func(c *config) {
-		c.filters = f
-	})
 }
 
 // WithResponse sets a custom response handler function for the middleware.

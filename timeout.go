@@ -1,23 +1,24 @@
 // Copyright 2023 Sylvain Müller. All rights reserved.
 // Mount of this source code is governed by a MIT license that can be found
-// at https://github.com/tigerwill90/foxtimeout/blob/master/LICENSE.txt.
+// at https://github.com/fox-toolkit/timeout/blob/master/LICENSE.txt.
 //
 // This package is based on the Go standard library, see the LICENSE file
 // at https://github.com/golang/go/blob/master/LICENSE.
 
-package foxtimeout
+package timeout
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/tigerwill90/fox"
+	"github.com/fox-toolkit/fox"
 )
 
 var (
@@ -42,8 +43,8 @@ type Timeout struct {
 //
 // The timeout middleware supports the [http.Pusher] interface but does not support the [http.Hijacker] or [http.Flusher] interfaces.
 //
-// Individual routes can override the timeout duration using the [HandlerTimeout] option. It's also possible to set the read
-// and write deadline for individual route using the [ReadTimeout] and [WriteTimeout] option.
+// Individual routes can override the timeout duration using the [OverrideHandler] option. It's also possible to set the read
+// and write deadline for individual route using the [OverrideRead] and [OverrideWrite] option.
 // If dt <= 0 (or NoTimeout), this is a passthrough middleware but per-route options remain effective.
 func Middleware(dt time.Duration, opts ...Option) fox.MiddlewareFunc {
 	return create(dt, opts...).run
@@ -64,14 +65,6 @@ func create(dt time.Duration, opts ...Option) *Timeout {
 // run is the internal handler that applies the timeout logic.
 func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
 	return func(c *fox.Context) {
-
-		for _, f := range t.cfg.filters {
-			if f(c) {
-				next(c)
-				return
-			}
-		}
-
 		t.setDeadline(c)
 		dt := t.resolveTimeout(c)
 		if dt <= 0 {
@@ -119,9 +112,7 @@ func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
 			tw.mu.Lock()
 			defer tw.mu.Unlock()
 			dst := w.Header()
-			for k, vv := range tw.headers {
-				dst[k] = vv
-			}
+			maps.Copy(dst, tw.headers)
 			w.WriteHeader(tw.code)
 			_, _ = w.Write(tw.buf.Bytes())
 		case <-ctx.Done():
@@ -167,7 +158,7 @@ func relevantCaller() runtime.Frame {
 	var frame runtime.Frame
 	for {
 		f, more := frames.Next()
-		if !strings.HasPrefix(f.Function, "github.com/tigerwill90/foxtimeout.") {
+		if !strings.HasPrefix(f.Function, "github.com/fox-toolkit/timeout.") {
 			return f
 		}
 		if !more {

@@ -1,7 +1,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/fox-toolkit/timeout.svg)](https://pkg.go.dev/github.com/fox-toolkit/timeout)
 [![tests](https://github.com/fox-toolkit/timeout/actions/workflows/tests.yaml/badge.svg)](https://github.com/fox-toolkit/timeout/actions?query=workflow%3Atests)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fox-toolkit/timeout)](https://goreportcard.com/report/github.com/fox-toolkit/timeout)
-[![codecov](https://codecov.io/gh/fox-toolkit/timeout/branch/master/graph/badge.svg?token=D6qSTlzEcE)](https://codecov.io/gh/fox-toolkit/timeout)
+[![codecov](https://codecov.io/gh/fox-toolkit/timeout/graph/badge.svg?token=TglbhaKMOx)](https://codecov.io/gh/fox-toolkit/timeout)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/fox-toolkit/timeout)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/fox-toolkit/timeout)
 

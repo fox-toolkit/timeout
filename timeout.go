@@ -137,6 +137,8 @@ func (t *Timeout) resolveTimeout(c *fox.Context) time.Duration {
 }
 
 func (t *Timeout) setDeadline(c *fox.Context) {
+	// Errors are intentionally ignored: the underlying connection may not support deadlines
+	// (e.g., http.ErrNotSupported), and there's no actionable recovery in this context.
 	if dt, ok := unwrapRouteTimeout(c.Route(), readTimeoutKey); ok {
 		_ = c.Writer().SetReadDeadline(time.Now().Add(dt))
 	}

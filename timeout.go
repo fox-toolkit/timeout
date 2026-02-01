@@ -130,7 +130,7 @@ func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
 }
 
 func (t *Timeout) resolveTimeout(c *fox.Context) time.Duration {
-	if dt, ok := unwrapRouteTimeout(c.Route(), timeoutKey); ok {
+	if dt, ok := unwrapRouteTimeout(c.Route(), hKey{}); ok {
 		return dt
 	}
 	return t.dt
@@ -139,10 +139,10 @@ func (t *Timeout) resolveTimeout(c *fox.Context) time.Duration {
 func (t *Timeout) setDeadline(c *fox.Context) {
 	// Errors are intentionally ignored: the underlying connection may not support deadlines
 	// (e.g., http.ErrNotSupported), and there's no actionable recovery in this context.
-	if dt, ok := unwrapRouteTimeout(c.Route(), readTimeoutKey); ok {
+	if dt, ok := unwrapRouteTimeout(c.Route(), rKey{}); ok {
 		_ = c.Writer().SetReadDeadline(time.Now().Add(dt))
 	}
-	if dt, ok := unwrapRouteTimeout(c.Route(), writeTimeoutKey); ok {
+	if dt, ok := unwrapRouteTimeout(c.Route(), wKey{}); ok {
 		_ = c.Writer().SetWriteDeadline(time.Now().Add(dt))
 	}
 }

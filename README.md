@@ -7,6 +7,10 @@
 
 # Timeout
 
+> [!NOTE]
+> This repository has been transferred from `github.com/tigerwill90/foxtimeout` to `github.com/fox-toolkit/timeout`.
+> Existing users should update their imports and `go.mod` accordingly.
+
 Timeout is a middleware for [Fox](https://github.com/fox-toolkit/fox) which ensure that a handler do not exceed the
 configured timeout limit.
 

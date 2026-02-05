@@ -26,13 +26,13 @@ func (f optionFunc) apply(c *config) {
 
 func defaultConfig() *config {
 	return &config{
-		resp: DefaultTimeoutResponse,
+		resp: DefaultResponse,
 	}
 }
 
 // WithResponse sets a custom response handler function for the middleware.
 // This function will be invoked when a timeout occurs, allowing for custom responses
-// to be sent back to the client. If not set, the middleware use [DefaultTimeoutResponse].
+// to be sent back to the client. If not set, the middleware use [DefaultResponse].
 func WithResponse(h fox.HandlerFunc) Option {
 	return optionFunc(func(c *config) {
 		if h != nil {
@@ -41,7 +41,7 @@ func WithResponse(h fox.HandlerFunc) Option {
 	})
 }
 
-// DefaultTimeoutResponse sends a default 503 Service Unavailable response.
-func DefaultTimeoutResponse(c *fox.Context) {
+// DefaultResponse sends a default 503 Service Unavailable response.
+func DefaultResponse(c *fox.Context) {
 	http.Error(c.Writer(), http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 }

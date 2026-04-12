@@ -41,7 +41,7 @@ type timeoutWriter struct {
 	req     *http.Request
 	buf     *bytes.Buffer
 	code    int
-	mu      sync.RWMutex
+	mu      sync.Mutex
 	written bool
 	n       int
 }

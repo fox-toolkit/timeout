@@ -95,8 +95,8 @@ func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
 		cp := c.CloneWith(tw, req)
 
 		go func() {
+			defer cp.Close()
 			defer func() {
-				cp.Close()
 				if p := recover(); p != nil {
 					panicChan <- p
 				}

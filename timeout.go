@@ -45,7 +45,7 @@ type Timeout struct {
 //
 // Individual routes can override the timeout duration using the [OverrideHandler] option. It's also possible to set the read
 // and write deadline for individual route using the [OverrideRead] and [OverrideWrite] option.
-// If dt <= 0 (or NoTimeout), this is a passthrough middleware but per-route options remain effective.
+// If dt <= 0 (or None), this is a passthrough middleware but per-route options remain effective.
 func Middleware(dt time.Duration, opts ...Option) fox.MiddlewareFunc {
 	return create(dt, opts...).run
 }

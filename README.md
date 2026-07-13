@@ -46,7 +46,6 @@ import (
 
 func main() {
 	f := fox.MustRouter(
-		fox.DefaultOptions(),
 		fox.WithMiddleware(
 			timeout.Middleware(2*time.Second),
 		),
@@ -56,7 +55,7 @@ func main() {
 		_ = c.String(http.StatusOK, fmt.Sprintf("Hello %s\n", c.Param("name")))
 	})
 	// Disable timeout the middleware for this route
-	f.MustAdd(fox.MethodGet, "/download/+{filepath}", DownloadHandler, timeout.OverrideHandler(timeout.NoTimeout))
+	f.MustAdd(fox.MethodGet, "/download/+{filepath}", DownloadHandler, timeout.OverrideHandler(timeout.None))
 	// Use 15s timeout instead of the global 2s for this route
 	f.MustAdd(fox.MethodGet, "/workflow/{id}/start", WorkflowHandler, timeout.OverrideHandler(15*time.Second))
 

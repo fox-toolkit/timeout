@@ -139,7 +139,7 @@ func TestMiddleware_WithHandlerTimeout(t *testing.T) {
 func TestMiddleware_WithDisableTimeout(t *testing.T) {
 	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
 	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(NoTimeout))
+	f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(None))
 
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
@@ -150,7 +150,7 @@ func TestMiddleware_WithDisableTimeout(t *testing.T) {
 }
 
 func TestMiddleware_WithReadTimeout(t *testing.T) {
-	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(NoTimeout)))
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(None)))
 	require.NoError(t, err)
 
 	called := false
@@ -185,7 +185,7 @@ func TestMiddleware_WithReadTimeout(t *testing.T) {
 }
 
 func TestMiddleware_WithWriteTimeout(t *testing.T) {
-	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(NoTimeout)))
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(None)))
 	require.NoError(t, err)
 
 	f.MustAdd(fox.MethodGet, "/foo", func(c *fox.Context) {
@@ -230,5 +230,5 @@ func ExampleOverrideHandler() {
 
 	f.MustAdd(fox.MethodGet, "/no-timeout", func(c *fox.Context) {
 		c.Writer().WriteHeader(http.StatusOK)
-	}, OverrideHandler(NoTimeout))
+	}, OverrideHandler(None))
 }

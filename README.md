@@ -1,6 +1,5 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/fox-toolkit/timeout.svg)](https://pkg.go.dev/github.com/fox-toolkit/timeout)
 [![tests](https://github.com/fox-toolkit/timeout/actions/workflows/tests.yaml/badge.svg)](https://github.com/fox-toolkit/timeout/actions?query=workflow%3Atests)
-[![Go Report Card](https://goreportcard.com/badge/github.com/fox-toolkit/timeout)](https://goreportcard.com/report/github.com/fox-toolkit/timeout)
 [![codecov](https://codecov.io/gh/fox-toolkit/timeout/graph/badge.svg?token=TglbhaKMOx)](https://codecov.io/gh/fox-toolkit/timeout)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/fox-toolkit/timeout)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/fox-toolkit/timeout)
@@ -46,7 +45,6 @@ import (
 
 func main() {
 	f := fox.MustRouter(
-		fox.DefaultOptions(),
 		fox.WithMiddleware(
 			timeout.Middleware(2*time.Second),
 		),
@@ -56,7 +54,7 @@ func main() {
 		_ = c.String(http.StatusOK, fmt.Sprintf("Hello %s\n", c.Param("name")))
 	})
 	// Disable timeout the middleware for this route
-	f.MustAdd(fox.MethodGet, "/download/+{filepath}", DownloadHandler, timeout.OverrideHandler(timeout.NoTimeout))
+	f.MustAdd(fox.MethodGet, "/download/+{filepath}", DownloadHandler, timeout.OverrideHandler(timeout.None))
 	// Use 15s timeout instead of the global 2s for this route
 	f.MustAdd(fox.MethodGet, "/workflow/{id}/start", WorkflowHandler, timeout.OverrideHandler(15*time.Second))
 

@@ -16,11 +16,11 @@ type (
 	wKey struct{}
 )
 
-const NoTimeout = time.Duration(0)
+const None = time.Duration(0)
 
 // OverrideHandler returns a RouteOption that sets a custom timeout duration for a specific route.
 // This allows individual routes to have different timeout values than the global timeout.
-// Passing a value <= 0 (or NoTimeout) disables the timeout for this route.
+// Passing a value <= 0 (or None) disables the timeout for this route.
 func OverrideHandler(dt time.Duration) fox.RouteOption {
 	return fox.WithAnnotation(hKey{}, dt)
 }

@@ -6,13 +6,16 @@ package timeout
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/fox-toolkit/fox"
@@ -26,29 +29,36 @@ func success201response(c *fox.Context) {
 }
 
 func TestMiddleware_WithTimeout(t *testing.T) {
-	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(50 * time.Microsecond)))
-	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response)
+	synctest.Test(t, func(t *testing.T) {
+		f, err := fox.NewRouter(fox.WithMiddleware(Middleware(50 * time.Microsecond)))
+		require.NoError(t, err)
+		f.MustAdd(fox.MethodGet, "/foo", success201response)
 
-	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
-	w := httptest.NewRecorder()
-	f.ServeHTTP(w, req)
+		req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		w := httptest.NewRecorder()
+		f.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusServiceUnavailable)), w.Body.String())
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+		assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusServiceUnavailable)), w.Body.String())
+
+		// Let the handler goroutine, which outlives the middleware after a timeout, finish.
+		time.Sleep(10 * time.Millisecond)
+	})
 }
 
 func TestMiddleware_WithoutTimeout(t *testing.T) {
-	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Second)))
-	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response)
+	synctest.Test(t, func(t *testing.T) {
+		f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Second)))
+		require.NoError(t, err)
+		f.MustAdd(fox.MethodGet, "/foo", success201response)
 
-	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
-	w := httptest.NewRecorder()
-	f.ServeHTTP(w, req)
+		req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		w := httptest.NewRecorder()
+		f.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
+		assert.Equal(t, http.StatusCreated, w.Code)
+		assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
+	})
 }
 
 func timeoutResponse(c *fox.Context) {
@@ -56,16 +66,21 @@ func timeoutResponse(c *fox.Context) {
 }
 
 func TestMiddleware_WithResponse(t *testing.T) {
-	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(50*time.Microsecond, WithResponse(timeoutResponse))))
-	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response)
+	synctest.Test(t, func(t *testing.T) {
+		f, err := fox.NewRouter(fox.WithMiddleware(Middleware(50*time.Microsecond, WithResponse(timeoutResponse))))
+		require.NoError(t, err)
+		f.MustAdd(fox.MethodGet, "/foo", success201response)
 
-	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
-	w := httptest.NewRecorder()
-	f.ServeHTTP(w, req)
+		req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		w := httptest.NewRecorder()
+		f.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusRequestTimeout, w.Code)
-	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusRequestTimeout)), w.Body.String())
+		assert.Equal(t, http.StatusRequestTimeout, w.Code)
+		assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusRequestTimeout)), w.Body.String())
+
+		// Let the handler goroutine, which outlives the middleware after a timeout, finish.
+		time.Sleep(10 * time.Millisecond)
+	})
 }
 
 func panicResponse(c *fox.Context) {
@@ -123,30 +138,73 @@ func TestMiddleware_ErrNotSupported(t *testing.T) {
 	f.ServeHTTP(w, req)
 }
 
-func TestMiddleware_WithHandlerTimeout(t *testing.T) {
-	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
-	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(2*time.Second))
+func TestMiddleware_PushAfterTimeout(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		f, err := fox.NewRouter(fox.WithMiddleware(Middleware(10 * time.Millisecond)))
+		require.NoError(t, err)
 
+		pushErr := make(chan error, 1)
+		f.MustAdd(fox.MethodGet, "/foo", func(c *fox.Context) {
+			time.Sleep(20 * time.Millisecond)
+			pushErr <- c.Writer().Push("/style.css", nil)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		w := httptest.NewRecorder()
+		f.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+		assert.ErrorIs(t, <-pushErr, http.ErrHandlerTimeout)
+	})
+}
+
+func TestMiddleware_SuperfluousWriteHeaderUsesServerErrorLog(t *testing.T) {
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Second)))
+	require.NoError(t, err)
+	f.MustAdd(fox.MethodGet, "/foo", func(c *fox.Context) {
+		c.Writer().WriteHeader(http.StatusCreated)
+		c.Writer().WriteHeader(http.StatusAccepted)
+	})
+
+	buf := new(bytes.Buffer)
+	srv := &http.Server{ErrorLog: log.New(buf, "", 0)}
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	req = req.WithContext(context.WithValue(req.Context(), http.ServerContextKey, srv))
 	w := httptest.NewRecorder()
 	f.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
+	assert.Contains(t, buf.String(), "http: superfluous response.WriteHeader call")
+}
+
+func TestMiddleware_WithHandlerTimeout(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
+		require.NoError(t, err)
+		f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(2*time.Second))
+
+		req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		w := httptest.NewRecorder()
+		f.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+		assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
+	})
 }
 
 func TestMiddleware_WithDisableTimeout(t *testing.T) {
-	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
-	require.NoError(t, err)
-	f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(None))
+	synctest.Test(t, func(t *testing.T) {
+		f, err := fox.NewRouter(fox.WithMiddleware(Middleware(1 * time.Millisecond)))
+		require.NoError(t, err)
+		f.MustAdd(fox.MethodGet, "/foo", success201response, OverrideHandler(None))
 
-	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
-	w := httptest.NewRecorder()
-	f.ServeHTTP(w, req)
+		req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		w := httptest.NewRecorder()
+		f.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
+		assert.Equal(t, http.StatusCreated, w.Code)
+		assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusCreated)), w.Body.String())
+	})
 }
 
 func TestMiddleware_WithReadTimeout(t *testing.T) {

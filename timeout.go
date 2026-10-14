@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"maps"
 	"net/http"
 	"runtime"
@@ -159,13 +160,23 @@ func relevantCaller() runtime.Frame {
 	frames := runtime.CallersFrames(pc[:n])
 	var frame runtime.Frame
 	for {
-		f, more := frames.Next()
-		if !strings.HasPrefix(f.Function, "github.com/fox-toolkit/timeout.") {
-			return f
+		var more bool
+		frame, more = frames.Next()
+		if !strings.HasPrefix(frame.Function, "github.com/fox-toolkit/timeout.") {
+			return frame
 		}
 		if !more {
 			break
 		}
 	}
 	return frame
+}
+
+func logf(r *http.Request, format string, args ...any) {
+	s, _ := r.Context().Value(http.ServerContextKey).(*http.Server)
+	if s != nil && s.ErrorLog != nil {
+		s.ErrorLog.Printf(format, args...)
+	} else {
+		log.Printf(format, args...)
+	}
 }

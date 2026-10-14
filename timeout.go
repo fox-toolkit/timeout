@@ -172,9 +172,6 @@ func relevantCaller() runtime.Frame {
 	return frame
 }
 
-// logf prints to the ErrorLog of the *http.Server associated with request r
-// via http.ServerContextKey. If there's no associated server, or if ErrorLog
-// is nil, logging is done via the log package's standard logger.
 func logf(r *http.Request, format string, args ...any) {
 	s, _ := r.Context().Value(http.ServerContextKey).(*http.Server)
 	if s != nil && s.ErrorLog != nil {

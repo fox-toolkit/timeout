@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"maps"
 	"net/http"
 	"runtime"
@@ -159,13 +160,26 @@ func relevantCaller() runtime.Frame {
 	frames := runtime.CallersFrames(pc[:n])
 	var frame runtime.Frame
 	for {
-		f, more := frames.Next()
-		if !strings.HasPrefix(f.Function, "github.com/fox-toolkit/timeout.") {
-			return f
+		var more bool
+		frame, more = frames.Next()
+		if !strings.HasPrefix(frame.Function, "github.com/fox-toolkit/timeout.") {
+			return frame
 		}
 		if !more {
 			break
 		}
 	}
 	return frame
+}
+
+// logf prints to the ErrorLog of the *http.Server associated with request r
+// via http.ServerContextKey. If there's no associated server, or if ErrorLog
+// is nil, logging is done via the log package's standard logger.
+func logf(r *http.Request, format string, args ...any) {
+	s, _ := r.Context().Value(http.ServerContextKey).(*http.Server)
+	if s != nil && s.ErrorLog != nil {
+		s.ErrorLog.Printf(format, args...)
+	} else {
+		log.Printf(format, args...)
+	}
 }

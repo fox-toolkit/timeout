@@ -11,7 +11,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"path"
@@ -74,6 +73,12 @@ func (tw *timeoutWriter) WriteString(s string) (int, error) {
 }
 
 func (tw *timeoutWriter) Push(target string, opts *http.PushOptions) error {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+	// After a timeout, the underlying writer may already belong to another request.
+	if tw.err != nil {
+		return tw.err
+	}
 	return tw.w.Push(target, opts)
 }
 
@@ -103,7 +108,7 @@ func (tw *timeoutWriter) writeHeaderLocked(code int) {
 		return
 	case tw.written:
 		caller := relevantCaller()
-		log.Printf("http: superfluous response.WriteHeader call from %s (%s:%d)", caller.Function, path.Base(caller.File), caller.Line)
+		logf(tw.req, "http: superfluous response.WriteHeader call from %s (%s:%d)", caller.Function, path.Base(caller.File), caller.Line)
 	default:
 		tw.written = true
 		tw.code = code

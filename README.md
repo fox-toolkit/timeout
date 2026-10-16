@@ -6,16 +6,8 @@
 
 # Timeout
 
-> [!NOTE]
-> This repository has been transferred from `github.com/tigerwill90/foxtimeout` to `github.com/fox-toolkit/timeout`.
-> Existing users should update their imports and `go.mod` accordingly.
-
-Timeout is a middleware for [Fox](https://github.com/fox-toolkit/fox) which ensure that a handler do not exceed the
+Timeout is a middleware for [Fox](https://github.com/fox-toolkit/fox) which ensures that a handler does not exceed the
 configured timeout limit.
-
-## Disclaimer
-Timeout's API is closely tied to the Fox router, and it will only reach v1 when the router is stabilized.
-During the pre-v1 phase, breaking changes may occur and will be documented in the release notes.
 
 ## Getting started
 ### Installation
@@ -26,7 +18,7 @@ go get -u github.com/fox-toolkit/timeout
 ### Feature
 - Allows for custom timeout response to better suit specific use cases.
 - Tightly integrates with the Fox ecosystem for enhanced performance and scalability.
-- Supports dynamic timeout configuration on a per-route & per-request basis using custom `Resolver`.
+- Supports per-route overrides of the handler timeout and of the connection read/write deadlines.
 
 ### Usage
 ````go

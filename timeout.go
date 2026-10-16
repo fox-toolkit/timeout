@@ -30,8 +30,8 @@ var (
 	}
 )
 
-// Timeout is a middleware that ensure HTTP handlers don't exceed the configured timeout duration.
-type Timeout struct {
+// middleware ensures HTTP handlers don't exceed the configured timeout duration.
+type middleware struct {
 	cfg *config
 	dt  time.Duration
 }
@@ -39,8 +39,8 @@ type Timeout struct {
 // Middleware returns a [fox.MiddlewareFunc] that runs handlers with the given time limit.
 //
 // The middleware calls the next handler to handle each request, but if a call runs for longer than its time limit,
-// the handler responds with a 503 Service Unavailable error and the given message in its body (if a custom response
-// handler is not configured). After such a timeout, writes by the handler to its ResponseWriter will return [http.ErrHandlerTimeout].
+// the handler responds with a 503 Service Unavailable error (see [DefaultResponse]). After such a timeout, writes by the
+// handler to its ResponseWriter will return [http.ErrHandlerTimeout].
 //
 // The timeout middleware supports the [http.Pusher] interface but does not support the [http.Hijacker] or [http.Flusher] interfaces.
 //
@@ -51,20 +51,20 @@ func Middleware(dt time.Duration, opts ...Option) fox.MiddlewareFunc {
 	return create(dt, opts...).run
 }
 
-func create(dt time.Duration, opts ...Option) *Timeout {
+func create(dt time.Duration, opts ...Option) *middleware {
 	cfg := defaultConfig()
 	for _, opt := range opts {
 		opt.apply(cfg)
 	}
 
-	return &Timeout{
+	return &middleware{
 		dt:  dt,
 		cfg: cfg,
 	}
 }
 
 // run is the internal handler that applies the timeout logic.
-func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
+func (t *middleware) run(next fox.HandlerFunc) fox.HandlerFunc {
 	return func(c *fox.Context) {
 		t.setDeadline(c)
 		dt := t.resolveTimeout(c)
@@ -130,22 +130,30 @@ func (t *Timeout) run(next fox.HandlerFunc) fox.HandlerFunc {
 	}
 }
 
-func (t *Timeout) resolveTimeout(c *fox.Context) time.Duration {
+func (t *middleware) resolveTimeout(c *fox.Context) time.Duration {
 	if dt, ok := unwrapRouteTimeout(c.Route(), hKey{}); ok {
 		return dt
 	}
 	return t.dt
 }
 
-func (t *Timeout) setDeadline(c *fox.Context) {
+func (t *middleware) setDeadline(c *fox.Context) {
 	// Errors are intentionally ignored: the underlying connection may not support deadlines
 	// (e.g., http.ErrNotSupported), and there's no actionable recovery in this context.
 	if dt, ok := unwrapRouteTimeout(c.Route(), rKey{}); ok {
-		_ = c.Writer().SetReadDeadline(time.Now().Add(dt))
+		_ = c.Writer().SetReadDeadline(deadline(dt))
 	}
 	if dt, ok := unwrapRouteTimeout(c.Route(), wKey{}); ok {
-		_ = c.Writer().SetWriteDeadline(time.Now().Add(dt))
+		_ = c.Writer().SetWriteDeadline(deadline(dt))
 	}
+}
+
+// deadline returns the absolute deadline for dt, or the zero time (no deadline) if dt <= 0.
+func deadline(dt time.Duration) time.Time {
+	if dt <= 0 {
+		return time.Time{}
+	}
+	return time.Now().Add(dt)
 }
 
 func checkWriteHeaderCode(code int) {

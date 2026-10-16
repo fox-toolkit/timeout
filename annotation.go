@@ -27,12 +27,14 @@ func OverrideHandler(dt time.Duration) fox.RouteOption {
 
 // OverrideRead returns a RouteOption that sets the read deadline for the underlying connection.
 // This controls how long the server will wait before timing out while reading the request body.
+// Passing a value <= 0 (or None) clears the read deadline for this route.
 func OverrideRead(dt time.Duration) fox.RouteOption {
 	return fox.WithAnnotation(rKey{}, dt)
 }
 
 // OverrideWrite returns a RouteOption that sets the write deadline for the underlying connection.
 // This controls how long the server will wait before timing out writes to the client.
+// Passing a value <= 0 (or None) clears the write deadline for this route.
 func OverrideWrite(dt time.Duration) fox.RouteOption {
 	return fox.WithAnnotation(wKey{}, dt)
 }

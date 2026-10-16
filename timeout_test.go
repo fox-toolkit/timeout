@@ -269,6 +269,68 @@ func TestMiddleware_WithWriteTimeout(t *testing.T) {
 	assert.Less(t, n, int64(10*1024*1024))
 }
 
+func TestMiddleware_WithReadTimeoutNone(t *testing.T) {
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(None)))
+	require.NoError(t, err)
+
+	f.MustAdd(fox.MethodPost, "/foo", func(c *fox.Context) {
+		body, err := io.ReadAll(c.Request().Body)
+		if err != nil {
+			http.Error(c.Writer(), err.Error(), http.StatusRequestTimeout)
+			return
+		}
+		_, _ = c.Writer().Write(body)
+	}, OverrideRead(None))
+
+	srv := httptest.NewUnstartedServer(f)
+	srv.Config.ReadTimeout = 50 * time.Millisecond
+	srv.Start()
+	defer srv.Close()
+
+	pr, pw := io.Pipe()
+	go func() {
+		// Slow writer: sends data after the server read timeout, which the route clears
+		time.Sleep(200 * time.Millisecond)
+		_, _ = pw.Write([]byte("hello"))
+		pw.Close()
+	}()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/foo", pr)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "hello", string(body))
+}
+
+func TestMiddleware_WithWriteTimeoutNone(t *testing.T) {
+	f, err := fox.NewRouter(fox.WithMiddleware(Middleware(None)))
+	require.NoError(t, err)
+
+	f.MustAdd(fox.MethodGet, "/foo", func(c *fox.Context) {
+		// Exceed the server write timeout, which the route clears
+		time.Sleep(200 * time.Millisecond)
+		_, _ = c.Writer().Write([]byte("hello"))
+	}, OverrideWrite(None))
+
+	srv := httptest.NewUnstartedServer(f)
+	srv.Config.WriteTimeout = 50 * time.Millisecond
+	srv.Start()
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/foo")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "hello", string(body))
+}
+
 func ExampleOverrideHandler() {
 	f, err := fox.NewRouter(
 		fox.WithMiddleware(Middleware(2 * time.Second)),

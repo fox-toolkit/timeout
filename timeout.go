@@ -141,11 +141,19 @@ func (t *Timeout) setDeadline(c *fox.Context) {
 	// Errors are intentionally ignored: the underlying connection may not support deadlines
 	// (e.g., http.ErrNotSupported), and there's no actionable recovery in this context.
 	if dt, ok := unwrapRouteTimeout(c.Route(), rKey{}); ok {
-		_ = c.Writer().SetReadDeadline(time.Now().Add(dt))
+		_ = c.Writer().SetReadDeadline(deadline(dt))
 	}
 	if dt, ok := unwrapRouteTimeout(c.Route(), wKey{}); ok {
-		_ = c.Writer().SetWriteDeadline(time.Now().Add(dt))
+		_ = c.Writer().SetWriteDeadline(deadline(dt))
 	}
+}
+
+// deadline returns the absolute deadline for dt, or the zero time (no deadline) if dt <= 0.
+func deadline(dt time.Duration) time.Time {
+	if dt <= 0 {
+		return time.Time{}
+	}
+	return time.Now().Add(dt)
 }
 
 func checkWriteHeaderCode(code int) {

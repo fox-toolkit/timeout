@@ -3,7 +3,7 @@ module github.com/fox-toolkit/timeout
 go 1.26.0
 
 require (
-	github.com/fox-toolkit/fox v1.1.0
+	github.com/fox-toolkit/fox v1.1.1
 	github.com/stretchr/testify v1.12.1
 )
 
